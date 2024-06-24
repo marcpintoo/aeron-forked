@@ -99,5 +99,6 @@ jobs:
         if: ${{ inputs.release }}
         run: |
           echo ${{ inputs.snapshot-tag }} > version.txt
+          git status
           git commit -am "post ${{ inputs.tag }} release bump"
           git push origin master
