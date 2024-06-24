@@ -69,17 +69,11 @@ def hdrHistogramVersion = '2.2.2'
 def gitCommitHash = io.aeron.build.GithubUtil.currentGitHash("${projectDir}")
 
 ext {
-    isReleaseVersion = !aeronVersion.endsWith('-SNAPSHOT')
-    releasesRepoUrl = 'https://oss.sonatype.org/service/local/staging/deploy/maven2/'
-    snapshotsRepoUrl = 'https://oss.sonatype.org/content/repositories/snapshots/'
-
-    if (!project.hasProperty('ossrhUsername')) {
-        ossrhUsername = ''
-    }
-
-    if (!project.hasProperty('ossrhPassword')) {
-        ossrhPassword = ''
-    }
+    isReleaseVersion = true
+    releasesRepoUrl = 'http://localhost:8081/artifactory/test-maven-repo/'
+    snapshotsRepoUrl = 'http://localhost:8081/artifactory/test-maven-repo/'
+    ossrhUsername = 'admin'
+    ossrhPassword = 'password'
 }
 
 def projectPom = {
@@ -154,8 +148,8 @@ allprojects {
             failOnVersionConflict()
 
             force "org.agrona:agrona:${agronaVersion}",
-                  "net.bytebuddy:byte-buddy:${byteBuddyVersion}",
-                  "net.bytebuddy:byte-buddy-agent:${byteBuddyVersion}"
+                    "net.bytebuddy:byte-buddy:${byteBuddyVersion}",
+                    "net.bytebuddy:byte-buddy-agent:${byteBuddyVersion}"
         }
     }
 
@@ -391,16 +385,22 @@ project(':aeron-annotations') {
 
         repositories {
             maven {
-                url(!isReleaseVersion ? snapshotsRepoUrl : releasesRepoUrl)
+                url = 'http://localhost:8081/artifactory/test-maven-repo/'
+                allowInsecureProtocol = true
                 credentials {
-                    username = ossrhUsername
-                    password = ossrhPassword
+                    username = 'admin'
+                    password = 'password'
                 }
             }
         }
     }
 
     signing {
+        def signingKey = findProperty("signingKey")
+        def signingPassword = findProperty("signingPassword")
+        if (signingKey != null) {
+            useInMemoryPgpKeys(signingKey, signingPassword)
+        }
         sign publishing.publications.aeronAnnotations
     }
 }
@@ -461,16 +461,22 @@ project(':aeron-client') {
 
         repositories {
             maven {
-                url(!isReleaseVersion ? snapshotsRepoUrl : releasesRepoUrl)
+                url = 'http://localhost:8081/artifactory/test-maven-repo/'
+                allowInsecureProtocol = true
                 credentials {
-                    username = ossrhUsername
-                    password = ossrhPassword
+                    username = 'admin'
+                    password = 'password'
                 }
             }
         }
     }
 
     signing {
+        def signingKey = findProperty("signingKey")
+        def signingPassword = findProperty("signingPassword")
+        if (signingKey != null) {
+            useInMemoryPgpKeys(signingKey, signingPassword)
+        }
         sign publishing.publications.aeronClient
     }
 
@@ -568,16 +574,22 @@ project(':aeron-driver') {
 
         repositories {
             maven {
-                url(!isReleaseVersion ? snapshotsRepoUrl : releasesRepoUrl)
+                url = 'http://localhost:8081/artifactory/test-maven-repo/'
+                allowInsecureProtocol = true
                 credentials {
-                    username = ossrhUsername
-                    password = ossrhPassword
+                    username = 'admin'
+                    password = 'password'
                 }
             }
         }
     }
 
     signing {
+        def signingKey = findProperty("signingKey")
+        def signingPassword = findProperty("signingPassword")
+        if (signingKey != null) {
+            useInMemoryPgpKeys(signingKey, signingPassword)
+        }
         sign publishing.publications.aeronDriver
     }
 
@@ -746,16 +758,22 @@ project(':aeron-archive') {
 
         repositories {
             maven {
-                url(!isReleaseVersion ? snapshotsRepoUrl : releasesRepoUrl)
+                url = 'http://localhost:8081/artifactory/test-maven-repo/'
+                allowInsecureProtocol = true
                 credentials {
-                    username = ossrhUsername
-                    password = ossrhPassword
+                    username = 'admin'
+                    password = 'password'
                 }
             }
         }
     }
 
     signing {
+        def signingKey = findProperty("signingKey")
+        def signingPassword = findProperty("signingPassword")
+        if (signingKey != null) {
+            useInMemoryPgpKeys(signingKey, signingPassword)
+        }
         sign publishing.publications.aeronArchive
     }
 
@@ -875,16 +893,22 @@ project(':aeron-cluster') {
 
         repositories {
             maven {
-                url(!isReleaseVersion ? snapshotsRepoUrl : releasesRepoUrl)
+                url = 'http://localhost:8081/artifactory/test-maven-repo/'
+                allowInsecureProtocol = true
                 credentials {
-                    username = ossrhUsername
-                    password = ossrhPassword
+                    username = 'admin'
+                    password = 'password'
                 }
             }
         }
     }
 
     signing {
+        def signingKey = findProperty("signingKey")
+        def signingPassword = findProperty("signingPassword")
+        if (signingKey != null) {
+            useInMemoryPgpKeys(signingKey, signingPassword)
+        }
         sign publishing.publications.aeronCluster
     }
 
@@ -986,16 +1010,22 @@ project(':aeron-agent') {
         }
         repositories {
             maven {
-                url(!isReleaseVersion ? snapshotsRepoUrl : releasesRepoUrl)
+                url = 'http://localhost:8081/artifactory/test-maven-repo/'
+                allowInsecureProtocol = true
                 credentials {
-                    username = ossrhUsername
-                    password = ossrhPassword
+                    username = 'admin'
+                    password = 'password'
                 }
             }
         }
     }
 
     signing {
+        def signingKey = findProperty("signingKey")
+        def signingPassword = findProperty("signingPassword")
+        if (signingKey != null) {
+            useInMemoryPgpKeys(signingKey, signingPassword)
+        }
         sign publishing.publications.aeronAgent
     }
 }
@@ -1025,10 +1055,11 @@ project(':aeron-samples') {
 
         repositories {
             maven {
-                url(!isReleaseVersion ? snapshotsRepoUrl : releasesRepoUrl)
+                url = 'http://localhost:8081/artifactory/test-maven-repo/'
+                allowInsecureProtocol = true
                 credentials {
-                    username = ossrhUsername
-                    password = ossrhPassword
+                    username = 'admin'
+                    password = 'password'
                 }
             }
         }
@@ -1043,6 +1074,11 @@ project(':aeron-samples') {
     }
 
     signing {
+        def signingKey = findProperty("signingKey")
+        def signingPassword = findProperty("signingPassword")
+        if (signingKey != null) {
+            useInMemoryPgpKeys(signingKey, signingPassword)
+        }
         sign publishing.publications.aeronSamples
     }
 
@@ -1154,16 +1190,22 @@ project(':aeron-test-support') {
 
         repositories {
             maven {
-                url(!isReleaseVersion ? snapshotsRepoUrl : releasesRepoUrl)
+                url = 'http://localhost:8081/artifactory/test-maven-repo/'
+                allowInsecureProtocol = true
                 credentials {
-                    username = ossrhUsername
-                    password = ossrhPassword
+                    username = 'admin'
+                    password = 'password'
                 }
             }
         }
     }
 
     signing {
+        def signingKey = findProperty("signingKey")
+        def signingPassword = findProperty("signingPassword")
+        if (signingKey != null) {
+            useInMemoryPgpKeys(signingKey, signingPassword)
+        }
         sign publishing.publications.aeronTestSupport
     }
 }
@@ -1248,16 +1290,22 @@ project(':aeron-all') {
         }
         repositories {
             maven {
-                url(!isReleaseVersion ? snapshotsRepoUrl : releasesRepoUrl)
+                url = 'http://localhost:8081/artifactory/test-maven-repo/'
+                allowInsecureProtocol = true
                 credentials {
-                    username = ossrhUsername
-                    password = ossrhPassword
+                    username = 'admin'
+                    password = 'password'
                 }
             }
         }
     }
 
     signing {
+        def signingKey = findProperty("signingKey")
+        def signingPassword = findProperty("signingPassword")
+        if (signingKey != null) {
+            useInMemoryPgpKeys(signingKey, signingPassword)
+        }
         sign publishing.publications.aeronAll
     }
 }
