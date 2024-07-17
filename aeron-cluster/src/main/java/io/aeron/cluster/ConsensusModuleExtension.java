@@ -13,16 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.aeron.cluster;
 
 import io.aeron.Image;
 import io.aeron.cluster.service.Cluster;
-
-import org.agrona.DirectBuffer;
-
 import io.aeron.logbuffer.ControlledFragmentHandler;
 import io.aeron.logbuffer.Header;
+import org.agrona.DirectBuffer;
+import org.agrona.concurrent.AgentTerminationException;
 
 /**
  * Extension for handling messages from external schemas unknown to core Aeron Cluster code
@@ -49,6 +47,19 @@ public interface ConsensusModuleExtension extends AutoCloseable
      * @param snapshotImage          from which the extension can load its state which can be null when no snapshot.
      */
     void onStart(ConsensusModuleControl consensusModuleControl, Image snapshotImage);
+
+    /**
+     * An extension should implement this method to do its work. Long-running operations should be decomposed.
+     * <p>
+     * The return value is used for implementing an idle strategy that can be employed when no work is
+     * currently available for the extension to process.
+     * <p>
+     * If the extension wished to terminate and close then a {@link AgentTerminationException} can be thrown.
+     *
+     * @param nowNs is cluster time in nanoseconds.
+     * @return 0 to indicate no work was currently available, a positive value otherwise.
+     */
+    int doWork(long nowNs);
 
     /**
      * Cluster election is complete and new publication is added for the leadership term. If the node is a follower
@@ -81,7 +92,33 @@ public interface ConsensusModuleExtension extends AutoCloseable
      * @param header            representing the metadata for the data.
      * @return The action to be taken with regard to the stream position after the callback.
      */
-    ControlledFragmentHandler.Action onMessage(
+    ControlledFragmentHandler.Action onIngressExtensionMessage(
+        int actingBlockLength,
+        int templateId,
+        int schemaId,
+        int actingVersion,
+        DirectBuffer buffer,
+        int offset,
+        int length,
+        Header header);
+
+    /**
+     * Callback for handling committed log messages (for follower or recovery).
+     * <p>
+     * Within this callback reentrant calls to the {@link io.aeron.Aeron} client are not permitted and
+     * will result in undefined behaviour.
+     *
+     * @param actingBlockLength acting block length.
+     * @param templateId        the message template id (already parsed from header).
+     * @param schemaId          the schema id.
+     * @param actingVersion     acting version from header
+     * @param buffer            containing the data.
+     * @param offset            at which the data begins.
+     * @param length            of the data in bytes.
+     * @param header            representing the metadata for the data.
+     * @return The action to be taken with regard to the stream position after the callback.
+     */
+    ControlledFragmentHandler.Action onLogExtensionMessage(
         int actingBlockLength,
         int templateId,
         int schemaId,

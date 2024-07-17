@@ -142,6 +142,8 @@ public final class TestCluster implements AutoCloseable
     private final int appointedLeaderId;
     private final int backupNodeIndex;
     private final IntFunction<TestNode.TestService[]> serviceSupplier;
+    private final boolean useResponseChannels;
+
     private String logChannel;
     private String ingressChannel;
     private String egressChannel;
@@ -163,7 +165,8 @@ public final class TestCluster implements AutoCloseable
         final int staticMemberCount,
         final int appointedLeaderId,
         final IntHashSet byHostInvalidInitialResolutions,
-        final IntFunction<TestNode.TestService[]> serviceSupplier)
+        final IntFunction<TestNode.TestService[]> serviceSupplier,
+        final boolean useResponseChannels)
     {
         this.serviceSupplier = requireNonNull(serviceSupplier);
         if ((staticMemberCount + 1) >= 10)
@@ -173,7 +176,8 @@ public final class TestCluster implements AutoCloseable
 
         this.nodes = new TestNode[staticMemberCount + 1];
         this.backupNodeIndex = staticMemberCount;
-        this.staticClusterMembers = clusterMembers(0, staticMemberCount);
+        this.useResponseChannels = useResponseChannels;
+        this.staticClusterMembers = clusterMembers(0, staticMemberCount, this.useResponseChannels);
         this.staticClusterMemberEndpoints = ingressEndpoints(0, staticMemberCount);
         this.clusterMembersEndpoints = clusterMembersEndpoints(0, staticMemberCount);
         this.senderWildcardPortRanges = senderWildcardPortRanges(0, staticMemberCount);
@@ -191,9 +195,11 @@ public final class TestCluster implements AutoCloseable
 
     public static void awaitElectionState(final TestNode node, final ElectionState electionState)
     {
+        final Supplier<String> msg = () -> "index=" + node.index() + " role=" + node.role() + " electionState=" +
+            node.electionState() + " expected=" + electionState;
         while (node.electionState() != electionState)
         {
-            await(10);
+            await(10, msg);
         }
     }
 
@@ -211,7 +217,7 @@ public final class TestCluster implements AutoCloseable
         }
     }
 
-    private void await(final int delayMs, final Supplier<String> message)
+    private static void await(final int delayMs, final Supplier<String> message)
     {
         Tests.sleep(delayMs, message);
         ClusterTests.failOnClusterError();
@@ -292,7 +298,8 @@ public final class TestCluster implements AutoCloseable
             .senderWildcardPortRange(senderWildcardPortRanges[index])
             .receiverWildcardPortRange(receiverWildcardPortRanges[index])
             .dirDeleteOnShutdown(false)
-            .dirDeleteOnStart(true);
+            .dirDeleteOnStart(true)
+            .enableExperimentalFeatures(useResponseChannels);
 
         context.archiveContext
             .archiveId(index)
@@ -373,7 +380,8 @@ public final class TestCluster implements AutoCloseable
             .receiverWildcardPortRange(receiverWildcardPortRanges[index])
             .dirDeleteOnStart(true)
             .dirDeleteOnShutdown(false)
-            .nameResolver(new RedirectingNameResolver(nodeNameMappings(index)));
+            .nameResolver(new RedirectingNameResolver(nodeNameMappings(index)))
+            .enableExperimentalFeatures(useResponseChannels);
 
         context.archiveContext
             .archiveId(index)
@@ -452,7 +460,8 @@ public final class TestCluster implements AutoCloseable
             .termBufferSparseFile(true)
             .senderWildcardPortRange(senderWildcardPortRanges[backupNodeIndex])
             .receiverWildcardPortRange(receiverWildcardPortRanges[backupNodeIndex])
-            .dirDeleteOnStart(true);
+            .dirDeleteOnStart(true)
+            .enableExperimentalFeatures(useResponseChannels);
 
         context.archiveContext
             .catalogCapacity(CATALOG_CAPACITY)
@@ -610,7 +619,8 @@ public final class TestCluster implements AutoCloseable
                 .aeronDirectoryName(aeronDirName)
                 .nameResolver(new RedirectingNameResolver(nodeNameMappings()))
                 .senderWildcardPortRange("20700 20709")
-                .receiverWildcardPortRange("20710 20719");
+                .receiverWildcardPortRange("20710 20719")
+                .enableExperimentalFeatures(useResponseChannels);
 
             clientMediaDriver = TestMediaDriver.launch(ctx, clientDriverOutputConsumer(dataCollector));
         }
@@ -655,7 +665,8 @@ public final class TestCluster implements AutoCloseable
                 .dirDeleteOnStart(true)
                 .dirDeleteOnShutdown(false)
                 .aeronDirectoryName(aeronDirName)
-                .nameResolver(new RedirectingNameResolver(nodeNameMappings()));
+                .nameResolver(new RedirectingNameResolver(nodeNameMappings()))
+                .enableExperimentalFeatures(useResponseChannels);
 
             clientMediaDriver = TestMediaDriver.launch(ctx, clientDriverOutputConsumer(dataCollector));
         }
@@ -1479,10 +1490,16 @@ public final class TestCluster implements AutoCloseable
 
     public static String clusterMembers(final int clusterId, final int memberCount)
     {
-        return clusterMembers(clusterId, 0, memberCount);
+        return clusterMembers(clusterId, 0, memberCount, false);
     }
 
-    public static String clusterMembers(final int clusterId, final int initialMemberId, final int memberCount)
+    public static String clusterMembers(final int clusterId, final int memberCount, final boolean useResponseChannels)
+    {
+        return clusterMembers(clusterId, 0, memberCount, useResponseChannels);
+    }
+
+    public static String clusterMembers(
+        final int clusterId, final int initialMemberId, final int memberCount, final boolean useResponseChannels)
     {
         final StringBuilder builder = new StringBuilder();
 
@@ -1494,7 +1511,14 @@ public final class TestCluster implements AutoCloseable
                 .append(hostname(i)).append(":2").append(clusterId).append("22").append(i).append(',')
                 .append(hostname(i)).append(":2").append(clusterId).append("33").append(i).append(',')
                 .append(hostname(i)).append(":0,")
-                .append(hostname(i)).append(":801").append(i).append('|');
+                .append(hostname(i)).append(":801").append(i);
+
+            if (useResponseChannels)
+            {
+                builder.append(',').append(hostname(i)).append(":2").append(clusterId).append("44").append(i);
+            }
+
+            builder.append('|');
         }
 
         builder.setLength(builder.length() - 1);
@@ -1997,6 +2021,7 @@ public final class TestCluster implements AutoCloseable
         private File markFileBaseDir = null;
         private String clusterBaseDir = System.getProperty(
             CLUSTER_BASE_DIR_PROP_NAME, CommonContext.getAeronDirectoryName());
+        private boolean useResponseChannels = false;
 
         public Builder withStaticNodes(final int nodeCount)
         {
@@ -2099,6 +2124,12 @@ public final class TestCluster implements AutoCloseable
             return this;
         }
 
+        public Builder useResponseChannels(final boolean enabled)
+        {
+            this.useResponseChannels = enabled;
+            return this;
+        }
+
         public TestCluster start()
         {
             return start(nodeCount);
@@ -2116,7 +2147,8 @@ public final class TestCluster implements AutoCloseable
                 nodeCount,
                 appointedLeaderId,
                 byHostInvalidInitialResolutions,
-                serviceSupplier);
+                serviceSupplier,
+                useResponseChannels);
             testCluster.logChannel(logChannel);
             testCluster.ingressChannel(ingressChannel);
             testCluster.egressChannel(egressChannel);
